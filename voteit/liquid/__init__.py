@@ -5,4 +5,6 @@ _ = TranslationStringFactory('voteit.liquid')
 
 
 def includeme(config):
-    pass
+    config.include('.models')
+    config.scan('.views')
+    config.scan('.schemas')
