@@ -11,9 +11,25 @@
     <tal:messages replace="structure api.render_single_view_component(context, request, 'main', 'flash_messages')">Messages</tal:messages>
     <div class="clear"><!-- --></div>
 
+
+
     <h2 id="page_heading" i18n:translate="">Representation overview</h2>
 
-      <a class="icon iconpadding arrow-left" href="${request.resource_url(context)}" i18n:translate="">Back</a>
+    <a class="icon iconpadding arrow-left" href="${request.resource_url(context)}" i18n:translate="">Back</a>
+
+    <div>
+      <tal:enabled condition="ld_type">
+        <p i18n:translate="">Liquid democracy is enabled.</p>
+        <h3>
+          <span i18n:translate="">Type:</span>
+          <span tal:replace="structure ld_type.title">Type</span>
+        </h3>
+        <div tal:content="structure ld_type.description|''">Desc</div>
+      </tal:enabled>
+      <tal:disabled condition="not ld_type">
+        <p i18n:translate="">Liquid democracy isn't enabled.</p>
+      </tal:disabled>
+    </div>
 
     <h3 i18n:translate="">Representative</h3>
     <div tal:condition="api.userid in repr"

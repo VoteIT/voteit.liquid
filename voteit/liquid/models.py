@@ -1,9 +1,27 @@
+from logging import getLogger
+
+from BTrees.OOBTree import OOBTree
+from pyramid.decorator import reify
+from pyramid.threadlocal import get_current_registry
+from pyramid.threadlocal import get_current_request
+from pyramid.traversal import find_interface
+from pyramid.traversal import resource_path
+from voteit.core.interfaces import IObjectAddedEvent
+from voteit.core.interfaces import IObjectUpdatedEvent
+from voteit.core.models.interfaces import IMeeting
+from voteit.core.models.interfaces import IPoll
+from voteit.core.models.interfaces import IVote
+from voteit.core.security import ADD_VOTE
+from voteit.core.security import find_authorized_userids
 from zope.component import adapter
 from zope.interface import implementer
-from BTrees.OOBTree import OOBTree
-from voteit.core.models.interfaces import IMeeting
 
+from voteit.liquid.interfaces import ILiquidVoter
 from voteit.liquid.interfaces import IRepresentatives
+from voteit.liquid import _
+
+
+logger = getLogger(__name__)
 
 
 @implementer(IRepresentatives)
@@ -88,5 +106,93 @@ class Representatives(object):
         return iter(self.data)
 
 
+@adapter(IVote)
+@implementer(ILiquidVoter)
+class LiquidVoter(object):
+    title = ""
+    description = ""
+    name = ""
+
+    def __init__(self, context):
+        self.context = context
+
+    @reify
+    def meeting(self):
+        return find_interface(self.context, IMeeting)
+
+    @reify
+    def poll(self):
+        return find_interface(self.context, IPoll)
+
+    @property
+    def voter(self):
+        return self.context.creators[0]
+
+    @property
+    def is_repr(self):
+        return self.voter in IRepresentatives(self.meeting)
+
+    @reify
+    def delegators(self):
+        repr = IRepresentatives(self.meeting)
+        return repr.get(self.voter, ())
+
+    def __call__(self):
+        raise NotImplementedError() #pragma : no cover
+
+    def adjust_vote(self, userid):
+        """ Adjust another vote to look like the adapted context. """
+        #FIXME: Should the adjustments be tracked in some way?
+        logger.debug("Adjusting vote for '%s'" % userid)
+        if userid in self.poll:
+            vote = self.poll[userid]
+            logger.debug("Changing vote %r to look like %r" % (resource_path(vote), resource_path(self.context)))
+            vote.set_vote_data(self.context.get_vote_data())
+        else:
+            poll_plugin = self.poll.get_poll_plugin()
+            Vote = poll_plugin.get_vote_class()
+            vote = Vote(creators = [userid])
+            vote.set_vote_data(self.context.get_vote_data(), notify = False)
+            self.poll[userid] = vote
+            logger.debug("Added new vote %r that looks like %r" % (resource_path(vote), resource_path(self.context)))
+
+
+def handle_votes(context, event):
+    registry = get_current_registry()
+    ld_name = registry.settings.get('voteit.liquid.type', None)
+    if ld_name:
+        lv = registry.getAdapter(context, ILiquidVoter, name = ld_name)
+        lv()
+
+
+class SimpleAdjustVotes(LiquidVoter):
+    title = _("Simple add/adjust votes")
+    description = __doc__ = _("""
+        Only adds votes for delegators. This is probably a too simplistic
+        implementation to use since delegators and representatives may
+        change their votes at any time. It's ment as a development reference.
+        
+        Note that delegators still need the permission to add a vote for their votes to be added.
+        It's not enough that the representative has the permission to do so.
+    """)
+    name = "simple"
+
+    def __call__(self):
+        if not self.is_repr:
+            logger.debug("Curren't user wasn't a representative.")
+            return
+        all_voters = find_authorized_userids(self.poll, [ADD_VOTE])
+        request = get_current_request()
+        for userid in self.delegators:
+            if userid in all_voters:
+                logger.info("%r adjusted vote for %r in poll %r" % (self.voter, userid, resource_path(self.poll)))
+                self.adjust_vote(userid)
+            else:
+                logger.debug("%r doesn't have the add vote permission, so representative %r can't add one for this user." % (userid, self.voter))
+
+
 def includeme(config):
     config.registry.registerAdapter(Representatives)
+    config.registry.registerAdapter(SimpleAdjustVotes, name = SimpleAdjustVotes.name)
+    config.add_subscriber(handle_votes, (IVote, IObjectAddedEvent))
+    config.add_subscriber(handle_votes, (IVote, IObjectUpdatedEvent))

@@ -1,7 +1,8 @@
 from __future__ import unicode_literals
+
+from betahaus.pyracont.decorators import schema_factory
 import colander
 import deform
-from betahaus.pyracont.decorators import schema_factory
 
 from voteit.liquid import _
 from voteit.liquid.interfaces import IRepresentatives

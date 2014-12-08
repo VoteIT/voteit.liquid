@@ -3,12 +3,12 @@ from betahaus.viewcomponent.decorators import view_action
 from pyramid.httpexceptions import HTTPFound, HTTPForbidden
 from pyramid.view import view_config
 from voteit.core import security
-from voteit.core.models.interfaces import IMeeting
+from voteit.core.models.interfaces import IMeeting, IVote
 from voteit.core.views.base_edit import BaseForm
 from voteit.core.views.base_view import BaseView
 
 from voteit.liquid import _
-from voteit.liquid.interfaces import IRepresentatives
+from voteit.liquid.interfaces import IRepresentatives, ILiquidVoter
 
 
 @view_action('meeting', 'representation', title = _(u"Representation"))
@@ -16,6 +16,15 @@ def representation_menu_link(context, request, va, **kw):
     api = kw['api']
     url = request.resource_url(api.meeting, 'representation')
     return """<li><a href="%s">%s</a></li>""" % (url, api.translate(va.title))
+
+
+def _get_ld_adapter(request):
+    ld_name = request.registry.settings.get('voteit.liquid.type', None)
+    if not ld_name:
+        return
+    for reg in request.registry.registeredAdapters():
+        if reg.provided == ILiquidVoter and reg.name == ld_name and IVote in reg.required:
+            return reg.factory
 
 
 class RepresentationView(BaseView):
@@ -26,6 +35,7 @@ class RepresentationView(BaseView):
                  renderer = 'voteit.liquid:templates/representation.pt')
     def overview(self):
         self.response['repr'] = repr = IRepresentatives(self.context)
+        self.response['ld_type'] = _get_ld_adapter(self.request)
         return self.response
 
 
