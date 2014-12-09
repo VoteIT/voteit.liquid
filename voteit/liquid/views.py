@@ -34,6 +34,7 @@ class RepresentationView(BaseView):
                  permission = security.VIEW,
                  renderer = 'voteit.liquid:templates/representation.pt')
     def overview(self):
+        self.response['open'] = self.context.get_workflow_state() != 'closed'
         self.response['repr'] = repr = IRepresentatives(self.context)
         self.response['ld_type'] = _get_ld_adapter(self.request)
         return self.response
@@ -44,6 +45,11 @@ class RepresentationView(BaseView):
              permission = security.VIEW, #FIXME: Permission?
              renderer = 'voteit.core:views/templates/base_edit.pt')
 class RepresentativeForm(BaseForm):
+
+    def __call__(self):
+        if self.context.get_workflow_state() == 'closed':
+            raise HTTPForbidden(_("Meeting already closed"))
+        return super(RepresentativeForm, self).__call__()
 
     def get_schema(self):
         return createSchema('RepresentativeSchema')
@@ -78,6 +84,11 @@ class RepresentativeForm(BaseForm):
              renderer = 'voteit.core:views/templates/base_edit.pt')
 class SelectRepresentativeForm(BaseForm):
 
+    def __call__(self):
+        if self.context.get_workflow_state() == 'closed':
+            raise HTTPForbidden(_("Meeting already closed"))
+        return super(SelectRepresentativeForm, self).__call__()
+
     def get_schema(self):
         return createSchema('SelectRepresentativeSchema')
 
@@ -95,7 +106,6 @@ class SelectRepresentativeForm(BaseForm):
         active = appstruct['active']
         representative = appstruct['repr']
         is_current = repr.represented_by(userid) == representative
-
         if is_current and not active:
             #You've deselected this person
             repr.release(userid)

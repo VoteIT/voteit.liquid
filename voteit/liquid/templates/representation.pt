@@ -11,8 +11,6 @@
     <tal:messages replace="structure api.render_single_view_component(context, request, 'main', 'flash_messages')">Messages</tal:messages>
     <div class="clear"><!-- --></div>
 
-
-
     <h2 id="page_heading" i18n:translate="">Representation overview</h2>
 
     <a class="icon iconpadding arrow-left" href="${request.resource_url(context)}" i18n:translate="">Back</a>
@@ -37,6 +35,7 @@
     <div tal:condition="api.userid not in repr"
         i18n:translate="">You're not a preresentative. You can't receive votes from other users.</div>
     <a href="${request.resource_url(context, 'representative_form')}"
+      tal:condition="open"
       class="buttonize small"
       i18n:translate="">Change</a>
     
@@ -48,6 +47,7 @@
       You're represented by:
       <div class="creators" tal:content="structure api.get_creators_info([represented_by], portrait = False)"></div>
       <a href="${request.resource_url(context, 'select_representative_form', query = {'repr': represented_by})}"
+        tal:condition="open"
         class="buttonize small"
         i18n:translate="">Change</a>
     </div>
@@ -66,9 +66,13 @@
         <tal:iterate repeat="userid repr.keys()">
         <tr>
           <td>
-            <a class="buttonize small" href="${request.resource_url(context, 'select_representative_form', query = {'repr': userid})}">
-              <span tal:condition="represented_by == userid">Current</span>
-              <span tal:condition="represented_by != userid">Select</span>
+            <a tal:omit-tag="not open"
+              class="buttonize small"
+              href="${request.resource_url(context, 'select_representative_form', query = {'repr': userid})}">
+              <span tal:condition="represented_by == userid"
+                i18n:translate="">Current</span>
+              <span tal:condition="represented_by != userid and open"
+                i18n:translate="">Select</span>
             </a>
           </td>
           <td>
