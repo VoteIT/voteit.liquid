@@ -82,6 +82,11 @@ class RepresentativesTests(TestCase):
         obj = self._cut(Meeting())
         self.assertRaises(AssertionError, obj.represent, 'one', 'two')
 
+    def test_represent_self_error(self):
+        obj = self._cut(Meeting())
+        obj.enable_representative('one')
+        self.assertRaises(AssertionError, obj.represent, 'one', 'one')
+
     def test_event_on_represent(self):
         L = []
         def subscriber(event):
@@ -219,7 +224,7 @@ class LiquidVoterTests(TestCase):
         obj.adjust_vote('other')
         self.assertIn('other', poll)
         self.assertEqual(poll['other'].get_vote_data(), {'a': 1, 'b': 2})
-     
+
  
 class SimpleAdjustVotesTests(TestCase):
  

@@ -77,6 +77,7 @@ class Representatives(object):
 
     def represent(self, key, item):
         assert key in self, "%s is not a representative" % key
+        assert key != item, "Representative and represented can't be the same"
         self.release(item)
         representing = list(self[key])
         representing.append(item)

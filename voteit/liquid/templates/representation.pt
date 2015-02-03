@@ -67,6 +67,7 @@
         <tr>
           <td>
             <a tal:omit-tag="not open"
+              tal:condition="userid != request.authenticated_userid"
               class="buttonize small"
               href="${request.resource_url(context, 'select_representative_form', query = {'repr': userid})}">
               <span tal:condition="represented_by == userid"
