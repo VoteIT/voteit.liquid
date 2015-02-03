@@ -203,9 +203,8 @@ def handle_votes(context, event):
 class SimpleAdjustVotes(LiquidVoter):
     title = _("Simple add/adjust votes")
     description = __doc__ = _("""
-        Only adds votes for delegators. This is probably a too simplistic
-        implementation to use since delegators and representatives may
-        change their votes at any time. It's ment as a development reference.
+        Adds votes for delegators. If a vote has been changed by a delegator,
+        the representative won't have any effect on that vote.
         
         Note that delegators still need the permission to add a vote for their votes to be added.
         It's not enough that the representative has the permission to do so.

@@ -31,7 +31,8 @@ class SelectRepresentativeSchema(colander.Schema):
                                widget = deform.widget.HiddenWidget(),
                                validator = existing_representative_validator)
     active = colander.SchemaNode(colander.Bool(),
-                                 title = _("Active"),
+                                 title = _("Select this representative?"),
+                                 description = _("If you tick the box below, this person will represent you. If you wish, you may still vote yourself even if you're represented."),
                                  default = False,
                                  missing = False)
 
@@ -39,6 +40,9 @@ class SelectRepresentativeSchema(colander.Schema):
 @schema_factory()
 class RepresentativeSchema(colander.Schema):
     active = colander.SchemaNode(colander.Bool(),
-                                 title = _("Active representative?"),
+                                 title = _("Do you wish to be a representative?"),
+                                 description = _("If the box below is ticked, you'll be able to receive votes from others. "
+                                                 "If you untick it, you'll give back any votes that have been delegated to you. "
+                                                 "NOTE: If you become a representative, anyone delegating their vote to you will see how you've voted."),
                                  default = False,
                                  missing = False)
