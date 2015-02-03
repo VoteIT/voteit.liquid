@@ -46,13 +46,15 @@ class ILiquidVoter(Interface):
     title = Attribute("Title")
     description = Attribute("Description")
     name = Attribute("Adapter name - register the adapter with this name.")
-    voter = Attribute("UserID of the person who performed an action.")
     meeting = Attribute("Meeting object, looked up from context")
     poll = Attribute("Poll object, looked up from context")
-    delegators = Attribute("A tuple of UsedIDs who delegated their vote to this voter.")
+    repr = Attribute("The representatives adapter on the current meeting context")
 
-    def __call__():
-        """ Perform the actual vote changes. """
+    def __call__(voter):
+        """ Perform the actual vote changes.
+        
+            The voter is the userid of the person initiating the action.
+        """
 
     def adjust_vote(userid):
         """ Create or change the vote from 'userid'

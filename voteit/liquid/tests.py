@@ -51,6 +51,14 @@ class RepresentativesTests(TestCase):
         obj.disable_representative('goodbye')
         self.assertNotIn('goodbye', obj)
 
+    def test_disable_representative_releases_represented(self):
+        obj = self._cut(Meeting())
+        obj['goodbye'] = ('james', 'jane')
+        self.assertEqual(obj.represented_by('james'), 'goodbye')
+        obj.disable_representative('goodbye')
+        self.assertNotIn('goodbye', obj)
+        self.assertEqual(obj.represented_by('james'), None)
+
     def test_event_on_enable_repr(self):
         L = []
         def subscriber(event):
@@ -177,10 +185,11 @@ class LiquidVoterTests(TestCase):
  
     def setUp(self):
         self.config = testing.setUp()
+        self.config.include('voteit.liquid.models')
  
     def tearDown(self):
         testing.tearDown()
- 
+
     @property
     def _cut(self):
         from voteit.liquid.models import LiquidVoter
@@ -190,34 +199,31 @@ class LiquidVoterTests(TestCase):
         self.failUnless(verifyClass(ILiquidVoter, self._cut))
  
     def test_verify_object(self):
-        self.config.include('voteit.liquid.models')
         vote = _voting_fixture(self.config)
         self.failUnless(verifyObject(ILiquidVoter, self._cut(vote)))
  
-    def test_is_repr(self):
-        self.config.include('voteit.liquid.models')
+    def test_adjust_owner(self):
         vote = _voting_fixture(self.config)
+        vote.creators = ['someone_else']
         obj = self._cut(vote)
-        repr = IRepresentatives(obj.meeting)
-        self.assertFalse(obj.is_repr)
-        repr['one'] = ()
-        obj = self._cut(vote)
-        self.assertTrue(obj.is_repr)
+        obj.adjust_owner('one')
+        self.assertIn('one', vote.creators)
+        self.assertNotIn('someone_else', vote.creators)
  
     def test_adjust_vote_new_vote(self):
-        self.config.include('voteit.liquid.models')
         vote = _voting_fixture(self.config)
         obj = self._cut(vote)
+        obj.repr.enable_representative('one')
+        obj.repr.represent('one', 'other')
         obj.adjust_vote('other')
         poll = vote.__parent__
         self.assertIn('other', poll)
         self.assertEqual(poll['other'].get_vote_data(), {'a': 1, 'b': 2})
  
     def test_adjust_vote_existing(self):
-        self.config.include('voteit.liquid.models')
         vote = _voting_fixture(self.config)
         poll = vote.__parent__
-        other = Vote(creators = ['other'])
+        other = Vote(creators = ['one'])
         other.set_vote_data({'c': 3}, notify = False)
         poll['other'] = other
         obj = self._cut(vote)
@@ -225,13 +231,27 @@ class LiquidVoterTests(TestCase):
         self.assertIn('other', poll)
         self.assertEqual(poll['other'].get_vote_data(), {'a': 1, 'b': 2})
 
+    def test_adjust_vote_wont_touch_delegators_own_votes(self):
+        vote = _voting_fixture(self.config)
+        poll = vote.__parent__
+        obj = self._cut(vote)
+        obj.repr.enable_representative('one')
+        obj.repr.represent('one', 'other')
+        other = Vote(creators = ['other'])
+        other.set_vote_data({'c': 3}, notify = False)
+        poll['other'] = other
+        obj = self._cut(other)
+        obj.adjust_vote('other')
+        self.assertEqual(vote.get_vote_data(), {'a': 1, 'b': 2})
+        self.assertEqual(other.get_vote_data(), {'c': 3})
+        self.assertEqual(obj.repr.represented_by('other'), 'one')
+
  
 class SimpleAdjustVotesTests(TestCase):
  
     def setUp(self):
         self.config = testing.setUp()
-        self.config.include('voteit.liquid.models')
- 
+        
     def tearDown(self):
         testing.tearDown()
  
@@ -244,13 +264,16 @@ class SimpleAdjustVotesTests(TestCase):
         self.failUnless(verifyClass(ILiquidVoter, self._cut))
  
     def test_verify_object(self):
+        self.config.include('voteit.liquid.models')
         vote = _voting_fixture(self.config)
         self.failUnless(verifyObject(ILiquidVoter, self._cut(vote)))
 
     def test_delegators_without_voting_perm(self):
         vote = _voting_fixture(self.config)
-        self.config.registry.settings['voteit.liquid.type'] = 'simple'
+        self.config.testing_securitypolicy(userid = 'jane')
         poll = vote.__parent__
+        self.config.registry.settings['voteit.liquid.type'] = 'simple'
+        self.config.include('voteit.liquid.models')
         obj = self._cut(vote)
         repr = IRepresentatives(obj.meeting)
         repr['jane'] = ('james', 'john')
@@ -261,9 +284,11 @@ class SimpleAdjustVotesTests(TestCase):
 
     def test_delegators_get_votes(self):
         vote = _voting_fixture(self.config)
-        self.config.registry.settings['voteit.liquid.type'] = 'simple'
+        self.config.testing_securitypolicy(userid = 'jane')
         poll = vote.__parent__
         unrestricted_wf_transition_to(poll, 'ongoing')
+        self.config.registry.settings['voteit.liquid.type'] = 'simple'
+        self.config.include('voteit.liquid.models')
         obj = self._cut(vote)
         root = obj.meeting.__parent__
         root.users['james'] = User()
@@ -278,6 +303,16 @@ class SimpleAdjustVotesTests(TestCase):
         self.assertIn('james', poll)
         self.assertIn('john', poll)
         self.assertEqual(poll['james'].get_vote_data(), {'a': 1})
+
+    def test_call_adjusts_ownership_for_delegators_who_vote(self):
+        vote = _voting_fixture(self.config)
+        poll = vote.__parent__
+        poll['jane'] = v2 = Vote(creators = ['someone'])
+        self.config.include('voteit.liquid.models')
+        obj = self._cut(v2)
+        obj.adjust_owner('jane')
+        self.assertIn('jane', v2.creators)
+        self.assertNotIn('someone', v2.creators)
 
 
 class RepresentativeFormTests(TestCase):

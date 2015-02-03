@@ -4,10 +4,9 @@ from pyramid.i18n import TranslationStringFactory
 
 
 _ = TranslationStringFactory('voteit.liquid')
-
+logger = getLogger(__name__)
 
 def includeme(config):
-    logger = getLogger(__name__)
     ld_type = config.registry.settings.get('voteit.liquid.type', None)
     if ld_type:
         logger.info("voteit.liquid model set to '%s'" % ld_type)

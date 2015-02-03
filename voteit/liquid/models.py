@@ -1,5 +1,3 @@
-from logging import getLogger
-
 from BTrees.OOBTree import OOBTree
 from pyramid.decorator import reify
 from pyramid.threadlocal import get_current_registry
@@ -13,11 +11,13 @@ from voteit.core.models.interfaces import IPoll
 from voteit.core.models.interfaces import IVote
 from voteit.core.security import ADD_VOTE
 from voteit.core.security import find_authorized_userids
+from voteit.core.security import ROLE_OWNER
 from zope.component import adapter
 from zope.event import notify
 from zope.interface import implementer
 
 from voteit.liquid import _
+from voteit.liquid import logger
 from voteit.liquid.events import DelegationEnabled
 from voteit.liquid.events import DelegationWillBeDisabled
 from voteit.liquid.events import RepresentativeAddedVote
@@ -26,9 +26,6 @@ from voteit.liquid.events import RepresentativeEnabled
 from voteit.liquid.events import RepresentativeWillBeDisabled
 from voteit.liquid.interfaces import ILiquidVoter
 from voteit.liquid.interfaces import IRepresentatives
-
-
-logger = getLogger(__name__)
 
 
 @implementer(IRepresentatives)
@@ -151,49 +148,56 @@ class LiquidVoter(object):
     def poll(self):
         return find_interface(self.context, IPoll)
 
-    @property
-    def voter(self):
-        return self.context.creators[0]
-
-    @property
-    def is_repr(self):
-        return self.voter in IRepresentatives(self.meeting)
-
     @reify
-    def delegators(self):
-        repr = IRepresentatives(self.meeting)
-        return repr.get(self.voter, ())
+    def repr(self):
+        return IRepresentatives(self.meeting)
 
-    def __call__(self):
+    def __call__(self, voter):
+        """ Note that voter here represents the person who initiated the action. """
         raise NotImplementedError() #pragma : no cover
+
+    def adjust_owner(self, userid):
+        if userid == self.context.__name__ and userid not in self.context.creators:
+            self.context.add_groups(userid, (ROLE_OWNER,), event = False)
+            self.context.del_groups(self.context.creators[0], (ROLE_OWNER,), event = False)
+            self.context.creators = [userid]
 
     def adjust_vote(self, userid):
         """ Adjust another vote to look like the adapted context. """
         #FIXME: Should the adjustments be tracked in some way?
         logger.debug("Adjusting vote for '%s'" % userid)
+        representative = self.repr.represented_by(userid)
         if userid in self.poll:
             vote = self.poll[userid]
-            logger.debug("Changing vote %r to look like %r" % (resource_path(vote), resource_path(self.context)))
-            vote.set_vote_data(self.context.get_vote_data())
-            event = RepresentativeChangedVote(vote, representative = self.voter, delegator = userid)
-            notify(event)
+            if userid in vote.creators:
+                logger.debug("%r has voted themselves to representative %r won't have any effect on the vote %r" % (userid, representative, vote))
+            else:
+                logger.debug("Changing vote %r to look like %r" % (resource_path(vote), resource_path(self.context)))
+                vote.set_vote_data(self.context.get_vote_data())
+                event = RepresentativeChangedVote(vote, representative = representative, delegator = userid)
+                notify(event)
         else:
             poll_plugin = self.poll.get_poll_plugin()
             Vote = poll_plugin.get_vote_class()
-            vote = Vote(creators = [userid])
+            assert representative is not None, "Tried to adjust vote where no representative was found"
+            vote = Vote(creators = [representative], representative = representative)
             vote.set_vote_data(self.context.get_vote_data(), notify = False)
             self.poll[userid] = vote
             logger.debug("Added new vote %r that looks like %r" % (resource_path(vote), resource_path(self.context)))
-            event = RepresentativeAddedVote(vote, representative = self.voter, delegator = userid)
+            event = RepresentativeAddedVote(vote, representative = representative, delegator = userid)
             notify(event)
 
 
 def handle_votes(context, event):
-    registry = get_current_registry()
-    ld_name = registry.settings.get('voteit.liquid.type', None)
+    request = get_current_request()
+    ld_name = request.registry.settings.get('voteit.liquid.type', None)
+    voter = request.authenticated_userid
+    if voter is None:
+        logger.warn("handle_votes method couldn't find a valid userid. This should only happen during scripts or testing. Will abourt vote delegation.")
+        return
     if ld_name:
-        lv = registry.getAdapter(context, ILiquidVoter, name = ld_name)
-        lv()
+        lv = request.registry.getAdapter(context, ILiquidVoter, name = ld_name)
+        lv(voter)
 
 
 class SimpleAdjustVotes(LiquidVoter):
@@ -208,18 +212,18 @@ class SimpleAdjustVotes(LiquidVoter):
     """)
     name = "simple"
 
-    def __call__(self):
-        if not self.is_repr:
-            logger.debug("Curren't user wasn't a representative.")
+    def __call__(self, voter):
+        if voter not in self.repr:
+            logger.debug("Curren't user wasn't a representative, but we may need to adjust ownership")
+            self.adjust_owner(voter)
             return
         all_voters = find_authorized_userids(self.poll, [ADD_VOTE])
-        request = get_current_request()
-        for userid in self.delegators:
+        for userid in self.repr.get(voter, ()):
             if userid in all_voters:
-                logger.info("%r adjusted vote for %r in poll %r" % (self.voter, userid, resource_path(self.poll)))
+                logger.info("%r adjusted vote for %r in poll %r" % (voter, userid, resource_path(self.poll)))
                 self.adjust_vote(userid)
             else:
-                logger.debug("%r doesn't have the add vote permission, so representative %r can't add one for this user." % (userid, self.voter))
+                logger.debug("%r doesn't have the add vote permission, so representative %r can't add one for this user." % (userid, voter))
 
 
 def includeme(config):
