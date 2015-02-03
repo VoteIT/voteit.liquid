@@ -14,11 +14,18 @@ from voteit.core.models.interfaces import IVote
 from voteit.core.security import ADD_VOTE
 from voteit.core.security import find_authorized_userids
 from zope.component import adapter
+from zope.event import notify
 from zope.interface import implementer
 
+from voteit.liquid import _
+from voteit.liquid.events import DelegationEnabled
+from voteit.liquid.events import DelegationWillBeDisabled
+from voteit.liquid.events import RepresentativeAddedVote
+from voteit.liquid.events import RepresentativeChangedVote
+from voteit.liquid.events import RepresentativeEnabled
+from voteit.liquid.events import RepresentativeWillBeDisabled
 from voteit.liquid.interfaces import ILiquidVoter
 from voteit.liquid.interfaces import IRepresentatives
-from voteit.liquid import _
 
 
 logger = getLogger(__name__)
@@ -54,12 +61,28 @@ class Representatives(object):
             self.context.__representatives_data_dev__ = data = OOBTree()
             return data
 
+    def enable_representative(self, key):
+        if key not in self:
+            self[key] = ()
+            event = RepresentativeEnabled(self.context, representative = key)
+            notify(event)
+
+    def disable_representative(self, key):
+        if key in self:
+            event = RepresentativeWillBeDisabled(self.context, representative = key)
+            notify(event)
+            for delegator in self[key]:
+                self.release(delegator)
+            del self[key]
+
     def represent(self, key, item):
         assert key in self, "%s is not a representative" % key
         self.release(item)
         representing = list(self[key])
         representing.append(item)
         self[key] = representing
+        event = DelegationEnabled(self.context, representative = key, delegator = item)
+        notify(event)
 
     def represented_by(self, key):
         return self.reverse_data.get(key, None)
@@ -70,6 +93,8 @@ class Representatives(object):
         """
         if key in self.reverse_data:
             representative = self.reverse_data[key]
+            event = DelegationWillBeDisabled(self.context, representative = representative, delegator = key)
+            notify(event)
             representing = list(self[representative])
             representing.remove(key)
             self[representative] = representing
@@ -148,6 +173,8 @@ class LiquidVoter(object):
             vote = self.poll[userid]
             logger.debug("Changing vote %r to look like %r" % (resource_path(vote), resource_path(self.context)))
             vote.set_vote_data(self.context.get_vote_data())
+            event = RepresentativeChangedVote(vote, representative = self.voter, delegator = userid)
+            notify(event)
         else:
             poll_plugin = self.poll.get_poll_plugin()
             Vote = poll_plugin.get_vote_class()
@@ -155,6 +182,8 @@ class LiquidVoter(object):
             vote.set_vote_data(self.context.get_vote_data(), notify = False)
             self.poll[userid] = vote
             logger.debug("Added new vote %r that looks like %r" % (resource_path(vote), resource_path(self.context)))
+            event = RepresentativeAddedVote(vote, representative = self.voter, delegator = userid)
+            notify(event)
 
 
 def handle_votes(context, event):

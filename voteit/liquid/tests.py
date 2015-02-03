@@ -2,8 +2,6 @@ from unittest import TestCase
 
 from pyramid import testing
 from pyramid.httpexceptions import HTTPForbidden
-from pyramid.traversal import find_interface
-from voteit.core.models.interfaces import IMeeting
 from voteit.core.models.meeting import Meeting
 from voteit.core.models.user import User
 from voteit.core.models.vote import Vote
@@ -12,8 +10,14 @@ from voteit.core.testing_helpers import bootstrap_and_fixture
 from zope.interface.verify import verifyClass
 from zope.interface.verify import verifyObject
 
-from voteit.liquid.interfaces import IRepresentatives
+from voteit.liquid.interfaces import IDelegationEnabled
+from voteit.liquid.interfaces import IDelegationWillBeDisabled
 from voteit.liquid.interfaces import ILiquidVoter
+from voteit.liquid.interfaces import IRepresentativeAddedVote
+from voteit.liquid.interfaces import IRepresentativeChangedVote
+from voteit.liquid.interfaces import IRepresentativeEnabled
+from voteit.liquid.interfaces import IRepresentativeWillBeDisabled
+from voteit.liquid.interfaces import IRepresentatives
 
 
 class RepresentativesTests(TestCase):
@@ -35,6 +39,39 @@ class RepresentativesTests(TestCase):
     def test_verify_object(self):
         self.failUnless(verifyObject(IRepresentatives, self._cut(Meeting())))
 
+
+    def test_enable_representative(self,):
+        obj = self._cut(Meeting())
+        obj.enable_representative('hello')
+        self.assertIn('hello', obj)
+        
+    def test_disable_representative(self):
+        obj = self._cut(Meeting())
+        obj['goodbye'] = ()
+        obj.disable_representative('goodbye')
+        self.assertNotIn('goodbye', obj)
+
+    def test_event_on_enable_repr(self):
+        L = []
+        def subscriber(event):
+            L.append(event)
+        self.config.add_subscriber(subscriber, IRepresentativeEnabled)
+        obj = self._cut(Meeting())
+        obj.enable_representative('hello')
+        self.assertEqual(len(L), 1)
+
+    def test_event_on_disable_repr(self):
+        L = []
+        def subscriber(event):
+            L.append(event)
+        self.config.add_subscriber(subscriber, IRepresentativeWillBeDisabled)
+        obj = self._cut(Meeting())
+        obj.disable_representative('hello')
+        self.assertEqual(len(L), 0)
+        obj['hello'] = ()
+        obj.disable_representative('hello')
+        self.assertEqual(len(L), 1)
+
     def test_represent(self):
         obj = self._cut(Meeting())
         obj['one'] = ()
@@ -44,6 +81,18 @@ class RepresentativesTests(TestCase):
     def test_represent_not_a_representative(self):
         obj = self._cut(Meeting())
         self.assertRaises(AssertionError, obj.represent, 'one', 'two')
+
+    def test_event_on_represent(self):
+        L = []
+        def subscriber(event):
+            L.append(event)
+        self.config.add_subscriber(subscriber, IDelegationEnabled)
+        obj = self._cut(Meeting())
+        obj['one'] = ()
+        obj.represent('one', 'two')
+        self.assertEqual(len(L), 1)
+        self.assertEqual(L[0].representative, 'one')
+        self.assertEqual(L[0].delegator, 'two')
 
     def test_represented_by(self):
         obj = self._cut(Meeting())
@@ -58,6 +107,19 @@ class RepresentativesTests(TestCase):
         obj.release('two')
         self.assertNotIn('two', obj['one'])
         self.assertEqual(obj.represented_by('two'), None)
+
+    def test_event_on_release(self):
+        L = []
+        def subscriber(event):
+            L.append(event)
+        self.config.add_subscriber(subscriber, IDelegationWillBeDisabled)
+        obj = self._cut(Meeting())
+        obj['one'] = ()
+        obj.represent('one', 'two')
+        obj.release('two')
+        self.assertEqual(len(L), 1)
+        self.assertEqual(L[0].representative, 'one')
+        self.assertEqual(L[0].delegator, 'two')
 
     def test_del_releases(self):
         obj = self._cut(Meeting())

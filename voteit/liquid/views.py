@@ -1,6 +1,7 @@
 from betahaus.pyracont.factories import createSchema
 from betahaus.viewcomponent.decorators import view_action
-from pyramid.httpexceptions import HTTPFound, HTTPForbidden
+from pyramid.httpexceptions import HTTPForbidden
+from pyramid.httpexceptions import HTTPFound
 from pyramid.view import view_config
 from voteit.core import security
 from voteit.core.models.interfaces import IMeeting, IVote
@@ -8,7 +9,8 @@ from voteit.core.views.base_edit import BaseForm
 from voteit.core.views.base_view import BaseView
 
 from voteit.liquid import _
-from voteit.liquid.interfaces import IRepresentatives, ILiquidVoter
+from voteit.liquid.interfaces import ILiquidVoter
+from voteit.liquid.interfaces import IRepresentatives
 
 
 @view_action('meeting', 'representation', title = _(u"Representation"))
@@ -67,14 +69,14 @@ class RepresentativeForm(BaseForm):
             if is_repr:
                 self.api.flash_messages.add(_("You're now a representative"))
                 repr.release(userid)
-                repr[userid] = ()
+                repr.enable_representative(userid)
             else:
                 msg = _('no_longer_representative',
                         default = "You're no longer an available representative. "
                             "${votes} vote(s) were released back to their original owners.",
                             mapping = {'votes': len(repr[userid])})
                 self.api.flash_messages.add(msg)
-                del repr[userid]
+                repr.disable_representative(userid)
         return HTTPFound(location = self.request.resource_url(self.context, 'representation'))
 
 
