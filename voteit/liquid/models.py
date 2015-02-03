@@ -63,6 +63,7 @@ class Representatives(object):
 
     def enable_representative(self, key):
         if key not in self:
+            self.release(key)
             self[key] = ()
             event = RepresentativeEnabled(self.context, representative = key)
             notify(event)

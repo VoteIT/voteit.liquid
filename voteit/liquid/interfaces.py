@@ -8,8 +8,9 @@ class IRepresentatives(Interface):
 
 
     def enable_representative(key):
-        """ Mark someone as a representative.
-            Sends the event IRepresentativeEnabled when completed
+        """ Mark someone as a representative. Also releases vote if the newly set representative
+            was represented by someone.
+            Sends the event IRepresentativeEnabled when completed.
         """
 
     def disable_representative(key):

@@ -30,14 +30,21 @@
     </div>
 
     <h3 i18n:translate="">Representative</h3>
-    <div tal:condition="api.userid in repr"
-        i18n:translate="">You're currently a representative, with ${len(repr[api.userid])} extra votes.</div>
-    <div tal:condition="api.userid not in repr"
-        i18n:translate="">You're not a preresentative. You can't receive votes from other users.</div>
     <a href="${request.resource_url(context, 'representative_form')}"
       tal:condition="open"
       class="buttonize small"
       i18n:translate="">Change</a>
+    <div tal:condition="api.userid in repr">
+      <span i18n:translate="">You're currently a representative, with ${len(repr[api.userid])} extra votes.</span>      
+      <h4 i18n:translate="">Users you represent</h4>
+      <ul>
+        <li tal:repeat="userid repr[api.userid]">
+          <span tal:replace="structure api.get_creators_info([userid], portrait = False)"></span>
+        </li>
+      </ul>
+    </div>
+    <div tal:condition="api.userid not in repr"
+        i18n:translate="">You're not a representative. You can't receive votes from other users.</div>
     
     <h3 i18n:translate="">Representation</h3>
     <div tal:condition="represented_by == None">
@@ -54,6 +61,7 @@
 
     <h3 i18n:translate="">Available representatives</h3>
 
+    <span tal:condition="api.userid in repr">You're already a representative. You can't select someone else to represent you.</span>
     <table class="listing">
       <thead>
         <tr>
@@ -67,7 +75,7 @@
         <tr>
           <td>
             <a tal:omit-tag="not open"
-              tal:condition="userid != request.authenticated_userid"
+              tal:condition="userid != request.authenticated_userid and api.userid not in repr"
               class="buttonize small"
               href="${request.resource_url(context, 'select_representative_form', query = {'repr': userid})}">
               <span tal:condition="represented_by == userid"

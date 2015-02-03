@@ -60,6 +60,9 @@ class RepresentativeForm(BaseForm):
         repr = IRepresentatives(self.context)
         return {'active': self.api.userid in repr}
 
+    def cancel_success(self, *args):
+        return HTTPFound(location = self.request.resource_url(self.context, 'representation'))
+
     def save_success(self, appstruct):
         repr = IRepresentatives(self.context)
         userid = self.api.userid
@@ -101,6 +104,9 @@ class SelectRepresentativeForm(BaseForm):
             raise HTTPForbidden(_("That user isn't a representative"))
         return {'active': repr.represented_by(self.api.userid) == repr_userid,
                 'repr': repr_userid}
+
+    def cancel_success(self, *args):
+        return HTTPFound(location = self.request.resource_url(self.context, 'representation'))
 
     def save_success(self, appstruct):
         repr = IRepresentatives(self.context)
