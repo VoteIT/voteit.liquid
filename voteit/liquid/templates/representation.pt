@@ -17,11 +17,8 @@
 
     <div>
       <tal:enabled condition="ld_type">
-        <p i18n:translate="">Liquid democracy is enabled.</p>
-        <h3>
-          <span i18n:translate="">Type:</span>
-          <span tal:replace="structure ld_type.title">Type</span>
-        </h3>
+        <h3 i18n:translate="">Liquid democracy is enabled.</h3>
+        <p tal:replace="structure ld_type.title">Type</p>
         <div tal:content="structure ld_type.description|''">Desc</div>
       </tal:enabled>
       <tal:disabled condition="not ld_type">
