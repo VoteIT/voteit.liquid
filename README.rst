@@ -6,6 +6,9 @@ Liquid democracy for VoteIT
 
 The possibility to give your vote to someone else and have them represent you.
 
+Note: This is only compatible with the newer version of VoteIT that depends on Arche.
+The package is also pretty crude so far, but it gets the job done.
+
 Terminology
 -----------
 

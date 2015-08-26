@@ -9,8 +9,6 @@ CHANGES = open(os.path.join(here, 'CHANGES.rst')).read()
 requires = (
     'pyramid',
     'voteit.core',
-    'Babel',
-    'lingua',
     )
 
 setup(name='voteit.liquid',
@@ -35,8 +33,4 @@ setup(name='voteit.liquid',
       test_suite="voteit.liquid",
       entry_points = """\
       """,
-      message_extractors = { '.': [
-              ('**.py',   'lingua_python', None ),
-              ('**.pt',   'lingua_xml', None ),
-              ]},
       )

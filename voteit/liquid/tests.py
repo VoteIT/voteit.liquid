@@ -39,7 +39,6 @@ class RepresentativesTests(TestCase):
     def test_verify_object(self):
         self.failUnless(verifyObject(IRepresentatives, self._cut(Meeting())))
 
-
     def test_enable_representative(self,):
         obj = self._cut(Meeting())
         obj.enable_representative('hello')
@@ -163,6 +162,7 @@ class RepresentativesTests(TestCase):
         self.assertEqual([x for x in obj], ['one', 'two'])
 
     def test_integration(self):
+        self.config.include('arche.testing')
         self.config.registry.settings['voteit.liquid.type'] = 'simple'
         self.config.include('voteit.liquid')
         m = Meeting()
@@ -283,6 +283,7 @@ class SimpleAdjustVotesTests(TestCase):
         self.assertNotIn('james', poll)
 
     def test_delegators_get_votes(self):
+        self.config.include('pyramid_chameleon')
         vote = _voting_fixture(self.config)
         self.config.testing_securitypolicy(userid = 'jane')
         poll = vote.__parent__
@@ -320,6 +321,7 @@ class RepresentativeFormTests(TestCase):
     def setUp(self):
         self.config = testing.setUp()
         self.config.registry.settings['voteit.liquid.type'] = 'simple'
+        self.config.include('arche.testing')
         self.config.include('voteit.liquid')
 
     def tearDown(self):
@@ -398,6 +400,7 @@ class SelectRepresentativeFormTests(TestCase):
         return SelectRepresentativeForm
 
     def _fixture(self):
+        self.config.include('arche.testing')
         self.config.registry.settings['voteit.liquid.type'] = 'simple'
         self.config.include('voteit.liquid')
         self.config.testing_securitypolicy('jane', permissive = True)

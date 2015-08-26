@@ -11,7 +11,7 @@ def includeme(config):
     if ld_type:
         logger.info("voteit.liquid model set to '%s'" % ld_type)
         config.include('.models')
-        config.scan('.views')
-        config.scan('.schemas')
+        config.include('.views')
+        config.include('.schemas')
     else:
         logger.warn("'voteit.liquid.type' must be set if you want to include this plugin.")

@@ -1,6 +1,5 @@
 from __future__ import unicode_literals
 
-from betahaus.pyracont.decorators import schema_factory
 import colander
 import deform
 
@@ -25,7 +24,6 @@ class ExistingRepresentativeValidator(object):
             raise colander.Invalid(node, _("Not an existing representative"))
 
 
-@schema_factory()
 class SelectRepresentativeSchema(colander.Schema):
     repr = colander.SchemaNode(colander.String(),
                                widget = deform.widget.HiddenWidget(),
@@ -37,7 +35,6 @@ class SelectRepresentativeSchema(colander.Schema):
                                  missing = False)
 
 
-@schema_factory()
 class RepresentativeSchema(colander.Schema):
     active = colander.SchemaNode(colander.Bool(),
                                  title = _("Do you wish to be a representative?"),
@@ -46,3 +43,9 @@ class RepresentativeSchema(colander.Schema):
                                                  "NOTE: If you become a representative, anyone delegating their vote to you will see how you've voted."),
                                  default = False,
                                  missing = False)
+
+
+def includeme(config):
+    config.add_content_schema('Meeting', SelectRepresentativeSchema, 'select_representative_form')
+    config.add_content_schema('Meeting', RepresentativeSchema, 'representative_form')
+    

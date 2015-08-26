@@ -158,8 +158,8 @@ class LiquidVoter(object):
 
     def adjust_owner(self, userid):
         if userid == self.context.__name__ and userid not in self.context.creators:
-            self.context.add_groups(userid, (ROLE_OWNER,), event = False)
-            self.context.del_groups(self.context.creators[0], (ROLE_OWNER,), event = False)
+            self.context.local_roles.add(userid, [ROLE_OWNER])
+            self.context.local_roles.remove(self.context.creators[0], [ROLE_OWNER])
             self.context.creators = [userid]
 
     def adjust_vote(self, userid):
