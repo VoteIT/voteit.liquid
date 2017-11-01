@@ -4,10 +4,12 @@ Liquid democracy for VoteIT
 .. image:: https://travis-ci.org/VoteIT/voteit.liquid.png?branch=master
     :target: https://travis-ci.org/VoteIT/voteit.liquid
 
-The possibility to give your vote to someone else and have them represent you.
 
-Note: This is only compatible with the newer version of VoteIT that depends on Arche.
-The package is also pretty crude so far, but it gets the job done.
+NOTE: Development on this package is discontinued. It probably won't work with the current version of VoteIT.
+
+---
+
+The possibility to give your vote to someone else and have them represent you.
 
 Terminology
 -----------
